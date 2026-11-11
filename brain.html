@@ -29,9 +29,11 @@ input[type=password]:focus { outline: 2px solid var(--accent); outline-offset: 1
 button { font: inherit; font-weight: 600; font-size: 15px; min-height: 46px; border: 0; border-radius: 10px; background: var(--accent); color: var(--accent-ink); cursor: pointer; }
 button:disabled { opacity: 0.6; }
 #msg { margin: 0; min-height: 20px; font-size: 14px; color: var(--err); }
+html.checking form { visibility: hidden; }
 </style>
 </head>
 <body>
+<script>try { if (localStorage.getItem('gd-key') || sessionStorage.getItem('gd-key')) document.documentElement.className = 'checking'; } catch (e) {}</script>
 <form id="f" autocomplete="on">
   <h1>Morning Dashboard</h1>
   <label for="pw">Password</label>
@@ -53,14 +55,16 @@ async function decrypt(raw) {
   var pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64(P.iv) }, key, b64(P.ct));
   return new TextDecoder().decode(pt);
 }
-function show(page) { document.open(); document.write(page); document.close(); }
+function ready() { return new Promise(function (r) { if (document.readyState === 'complete') r(); else window.addEventListener('load', function () { r(); }); }); }
+async function show(page) { await ready(); document.open(); document.write(page); document.close(); }
 (async function () {
   var saved = null;
   try { saved = localStorage.getItem('gd-key') || sessionStorage.getItem('gd-key'); } catch (e) {}
   if (saved) {
-    try { show(await decrypt(b64(saved))); return; }
+    try { await show(await decrypt(b64(saved))); return; }
     catch (e) { try { localStorage.removeItem('gd-key'); sessionStorage.removeItem('gd-key'); } catch (e2) {} }
   }
+  document.documentElement.className = '';
 })();
 document.getElementById('f').addEventListener('submit', async function (ev) {
   ev.preventDefault();
@@ -72,7 +76,7 @@ document.getElementById('f').addEventListener('submit', async function (ev) {
     // Save the key before swapping in the page, so the other tabs open without asking again
     try { sessionStorage.setItem('gd-key', toB64(raw)); } catch (e) {}
     if (document.getElementById('rem').checked) { try { localStorage.setItem('gd-key', toB64(raw)); } catch (e) {} }
-    show(page);
+    await show(page);
   } catch (e) {
     msg.textContent = 'Wrong password.';
     go.disabled = false; go.textContent = 'Unlock';
